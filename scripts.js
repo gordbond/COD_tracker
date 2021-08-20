@@ -1,4 +1,17 @@
+//TODO
+// Account for bug where we get lumped in with another team
+
+
 window.onload = function() {
+    matchIds = []
+    TEAM = ["ACokes10", "Flawless", "Flawless#3400635", "Glorbis", "Spirit Boot", "Coach", "CB"]
+    wins = []
+    today = new Date()
+    todayCutOff = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 6)
+    yesterdayCutOff = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1, 6)
+    let squadData = []
+    console.log("TODAY CUTOFF: " + todayCutOff + ", YESTERDAY CUTOFF: " + yesterdayCutOff)
+    //Get games between 6am Today and 6am the previous day
 
     Promise.all([
         fetch('http://localhost:3000/wz/gordo'),
@@ -9,11 +22,8 @@ window.onload = function() {
             return response.json();
         }));
     }).then(function (data) {
-        // Log the data to the console
-        // You would do something with both sets of data here
-        console.log(data);
-        insertValues(data[0])
-        getLatestWin(data)
+        squadData = data
+        getLatestWins(data)
     }).catch(function (error) {
         // if there's an error, log it
         console.log(error);
@@ -21,20 +31,48 @@ window.onload = function() {
 
 }
 
-getLatestWin = (data) =>{
-    data.forEach(player => {
-        matches = player.data.matches
-        matches.forEach(match => {
-            console.log("match", match)
-            //Find most recent win
+
+
+let addWin = (match) => {
+    let id = match.attributes.id
+    matchExists = wins.some(e => e.attributes.id === id)
+    teamCount = 0
+    squad = match.segments[0].metadata.teammates
+    numOfTeammates = squad.length
+    teammates = []
+    
+    // console.log("NUMBER OF TEAMMATES: " + numOfTeammates)
+    if(!matchExists && numOfTeammates <= 4){
+        squad.forEach( m => {
+            if (TEAM.includes(m.platformUserHandle)) {
+                teamCount++;
+                teammates.push(m.platformUserHandle)
+            }
+            
         })
-        // console.log("player", player.data)
-        
-    })
+        teammates.push(match.segments[0].metadata.platformUserHandle)
+        //Get stats for each player
+        getSquadStats(teammates);
+        //If more than one member of the squad was playing add it to the wins list
+        if (teamCount >= 1){
+            wins.push(match)
+        }
+    }
+    else{
+        console.log("Win not added")
+    }
+}
+
+//Put all the stats for each squad member with the match data
+let addSquadStats = (teammates) => {
+    
+
+
 }
 
 
-insertValues = async (res) => {
+
+let insertValues = async (res) => {
     document.getElementById("gTag").innerHTML = "Player: " + res.data.matches[0].segments[0].metadata.platformUserHandle
     document.getElementById("place").innerHTML = "Place: " + res.data.matches[0].segments[0].metadata.placement
     kd = res.data.matches[0].segments[0].stats.kdRatio
@@ -51,7 +89,23 @@ insertValues = async (res) => {
 
 }
 
-//Check to find out which was the last match:
-//Make sure at least 2 of the boys were in the match
-//Which guys were in the match 
-//Display their stats
+let getLatestWins = (data) => {
+    data.forEach(player => {
+        matches = player.data.matches
+        matches.forEach(match => {
+            let playerName = match.segments[0].metadata.platformUserHandle
+            let matchId = match.attributes.id
+            let place = parseInt(match.segments[0].metadata.placement)
+            let date = match.metadata.timestamp
+            date = new Date(date);
+            //Make sure data is from yesterday's games
+            if (date > yesterdayCutOff && date < todayCutOff) {
+                if (place == 1) {
+                    addWin(match)
+                }
+            } 
+            
+        })
+
+    })
+}
